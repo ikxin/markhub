@@ -1,36 +1,52 @@
 export default defineEventHandler(async (event) => {
+  // 获取路由参数和查询参数
   const username = getRouterParam(event, "user");
   const { size = 200 } = getQuery(event);
 
+  // 验证用户名是否存在
   if (!username) {
-    return {
+    throw createError({
       statusCode: 400,
       message: "Username is required",
-    };
+    });
   }
 
-  const githubAvatarUrl = `https://github.com/${username}.png?size=${size}`;
+  // 设置通用响应头
+  const setResponseHeaders = () => {
+    event.node.res.setHeader("Content-Type", "image/png");
+    event.node.res.setHeader("Cache-Control", "max-age=3600, public");
+  };
+
+  // 获取头像图片
+  const getAvatar = async (url: string) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw createError({
+        statusCode: response.status,
+        message: `Failed to fetch avatar from ${url}`,
+      });
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  };
 
   try {
-    const response = await fetch(githubAvatarUrl);
-
-    if (!response.ok) {
-      return {
-        statusCode: response.status,
-        message: "Failed to fetch GitHub avatar",
-      };
+    // 尝试获取用户头像
+    const githubAvatarUrl = `https://github.com/${username}.png?size=${size}`;
+    try {
+      const avatar = await getAvatar(githubAvatarUrl);
+      setResponseHeaders();
+      return avatar;
+    } catch {
+      // 如果获取用户头像失败,使用默认头像
+      const defaultAvatarUrl = `https://github.com/github.png?size=${size}`;
+      const defaultAvatar = await getAvatar(defaultAvatarUrl);
+      setResponseHeaders();
+      return defaultAvatar;
     }
-
-    const imageBuffer = await response.arrayBuffer();
-
-    event.node.res.setHeader("Content-Type", "image/png");
-    event.node.res.setHeader("Cache-Control", "max-age=3600");
-
-    return new Uint8Array(imageBuffer);
   } catch (error) {
-    return {
+    throw createError({
       statusCode: 500,
-      message: "Server error",
-    };
+      message: "Failed to fetch avatar",
+    });
   }
 });
