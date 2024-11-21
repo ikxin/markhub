@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   // 获取路由参数和查询参数
   const username = getRouterParam(event, "user");
-  const { size = 200 } = getQuery(event);
+  const { size = 200, type = "name" } = getQuery(event);
 
   // 验证用户名是否存在
   if (!username) {
@@ -30,8 +30,11 @@ export default defineEventHandler(async (event) => {
   };
 
   try {
-    // 尝试获取用户头像
-    const githubAvatarUrl = `https://github.com/${username}.png?size=${size}`;
+    // 根据查询参数 type 确定获取头像的方式
+    const githubAvatarUrl = type === "id" 
+      ? `https://avatars.githubusercontent.com/u/${username}?size=${size}`
+      : `https://github.com/${username}.png?size=${size}`;
+    
     try {
       const avatar = await getAvatar(githubAvatarUrl);
       setResponseHeaders();
