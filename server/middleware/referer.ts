@@ -1,6 +1,6 @@
 export default defineEventHandler((event) => {
   // 定义需要检查 referer 的受保护路径
-  const protectedPaths = ["/github"];
+  const protectedPaths: string[] = [];
 
   // 检查当前路径是否需要 referer 验证
   const needsRefererCheck = protectedPaths.some((protectedPath) =>
@@ -36,8 +36,8 @@ export default defineEventHandler((event) => {
   // 将域名规则转换为正则表达式
   const isAllowed = allowedDomains.some((domain) => {
     const pattern = domain
-      .replace(/\./g, "\\.")  // 转义点号
-      .replace(/\*/g, ".*");  // 将星号转换为正则表达式通配符
+      .replace(/\./g, "\\.") // 转义点号
+      .replace(/\*/g, ".*"); // 将星号转换为正则表达式通配符
     const regex = new RegExp(pattern);
     return regex.test(new URL(referer).hostname);
   });
