@@ -1,0 +1,60 @@
+import sharp from "sharp";
+import icoToPng from "ico-to-png";
+
+const LINK_TAG_REGEX =
+  /((<link[^>]+rel=.(icon|shortcut icon|alternate icon|apple-touch-icon)[^>]+>))/i;
+
+const LINK_REF_REGEX = /href=["']([^"']+)["']/i;
+
+export const getFaviconIco = async (host: string): Promise<Buffer> => {
+  const response = await fetch(`http://${host}/favicon.ico`);
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = await icoToPng(Buffer.from(arrayBuffer), 32);
+  return buffer;
+};
+
+export const getLinkTagIco = async (host: string): Promise<Buffer> => {
+  const htmlStr = await fetch(`http://${host}`).then((res) => res.text());
+
+  const linkTag = htmlStr.match(LINK_TAG_REGEX);
+  if (!linkTag) throw new Error();
+
+  const linkRef = linkTag[1].match(LINK_REF_REGEX);
+  if (!linkRef) throw new Error();
+
+  let [_, iconUrl] = linkRef;
+  iconUrl = new URL(iconUrl, `http://${host}`).toString();
+
+  const response = await fetch(iconUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  if (iconUrl.endsWith(".ico")) {
+    return icoToPng(Buffer.from(arrayBuffer), 32);
+  } else if (iconUrl.endsWith(".svg")) {
+    return sharp(Buffer.from(arrayBuffer)).png().toBuffer();
+  } else {
+    return buffer;
+  }
+};
+
+export const generateStringIco = (val?: string): Promise<Buffer> => {
+  const [r, g, b] = Array.from({ length: 3 }, () =>
+    Math.floor(Math.random() * 200)
+  );
+
+  const svg = `<svg width="64" height="64">
+    <rect width="64" height="64" rx="16" ry="16" fill="rgb(${r},${g},${b})"/>
+    <text 
+      x="32"
+      y="44"
+      font-family="Arial" 
+      font-size="36"
+      font-weight="bold"
+      fill="#FFFFFF"
+      text-anchor="middle"
+    >${val}</text>
+  </svg>`;
+
+  return sharp(Buffer.from(svg)).png().toBuffer();
+};
