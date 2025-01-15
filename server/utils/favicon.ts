@@ -7,10 +7,10 @@ const LINK_TAG_REGEX =
 const LINK_REF_REGEX = /href=["']([^"']+)["']/i;
 
 export const getFaviconIco = async (host: string): Promise<Buffer> => {
-  const response = await fetch(`http://${host}/favicon.ico`);
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = await icoToPng(Buffer.from(arrayBuffer), 32);
-  return buffer;
+  const data = await fetch(`http://${host}/favicon.ico`).then((res) =>
+    res.arrayBuffer()
+  );
+  return await icoToPng(Buffer.from(data), 32);
 };
 
 export const getLinkTagIco = async (host: string): Promise<Buffer> => {
@@ -25,17 +25,18 @@ export const getLinkTagIco = async (host: string): Promise<Buffer> => {
   let [_, iconUrl] = linkRef;
   iconUrl = new URL(iconUrl, `http://${host}`).toString();
 
-  const response = await fetch(iconUrl);
-  const arrayBuffer = await response.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
+  const data = await fetch(iconUrl).then((res) => res.arrayBuffer());
+  const buffer = Buffer.from(data);
 
   if (iconUrl.endsWith(".ico")) {
-    return icoToPng(Buffer.from(arrayBuffer), 32);
-  } else if (iconUrl.endsWith(".svg")) {
-    return sharp(Buffer.from(arrayBuffer)).png().toBuffer();
-  } else {
-    return buffer;
+    return icoToPng(Buffer.from(buffer), 32);
   }
+
+  if (iconUrl.endsWith(".svg")) {
+    return sharp(Buffer.from(buffer)).png().toBuffer();
+  }
+
+  return buffer;
 };
 
 export const generateStringIco = (val?: string): Promise<Buffer> => {
@@ -48,7 +49,6 @@ export const generateStringIco = (val?: string): Promise<Buffer> => {
     <text 
       x="32"
       y="44"
-      font-family="Arial" 
       font-size="36"
       font-weight="bold"
       fill="#FFFFFF"

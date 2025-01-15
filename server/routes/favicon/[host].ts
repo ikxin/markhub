@@ -6,7 +6,9 @@ export default defineEventHandler(async (event) => {
   try {
     buffer = await getFaviconIco(host);
   } catch (error) {
-    buffer = await getLinkTagIco(host);
+    try {
+      buffer = await getLinkTagIco(host);
+    } catch (error) {}
   }
 
   event.node.res.setHeader("Content-Type", "image/png");
