@@ -1,16 +1,25 @@
 export default defineEventHandler(async (event) => {
   const host = getRouterParam(event, "host")!;
 
-  let buffer: Buffer = await generateStringIco(host?.charAt(0).toUpperCase());
-
-  try {
-    buffer = await getFaviconIco(host);
-  } catch (error) {
-    try {
-      buffer = await getLinkTagIco(host);
-    } catch (error) {}
-  }
+  const defaultIco = await generateStringIco(host?.charAt(0).toUpperCase());
 
   event.node.res.setHeader("Content-Type", "image/png");
-  return buffer;
+
+  try {
+    return await getIcoByLinkTag(host);
+  } catch (error) {}
+
+  try {
+    return await getIcoByFavicon(host);
+  } catch (error) {}
+
+  try {
+    return await getIcoByWebmaster(host);
+  } catch (error) {}
+
+  try {
+    return await getIcoByGoogle(host);
+  } catch (error) {}
+
+  return defaultIco;
 });

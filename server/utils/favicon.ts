@@ -6,14 +6,14 @@ const LINK_TAG_REGEX =
 
 const LINK_REF_REGEX = /href=["']([^"']+)["']/i;
 
-export const getFaviconIco = async (host: string): Promise<Buffer> => {
+export const getIcoByFavicon = async (host: string): Promise<Buffer> => {
   const data = await fetch(`http://${host}/favicon.ico`).then((res) =>
     res.arrayBuffer()
   );
   return await icoToPng(Buffer.from(data), 32);
 };
 
-export const getLinkTagIco = async (host: string): Promise<Buffer> => {
+export const getIcoByLinkTag = async (host: string): Promise<Buffer> => {
   const htmlStr = await fetch(`http://${host}`).then((res) => res.text());
 
   const linkTag = htmlStr.match(LINK_TAG_REGEX);
@@ -32,11 +32,19 @@ export const getLinkTagIco = async (host: string): Promise<Buffer> => {
     return icoToPng(Buffer.from(buffer), 32);
   }
 
-  if (iconUrl.endsWith(".svg")) {
-    return sharp(Buffer.from(buffer)).png().toBuffer();
-  }
+  return sharp(Buffer.from(buffer)).png().toBuffer();
+};
 
-  return buffer;
+export const getIcoByWebmaster = async (host: string): Promise<Buffer> => {
+  const url = `https://favicon.im/${host}`;
+  const data = await fetch(url).then((res) => res.arrayBuffer());
+  return sharp(Buffer.from(data)).png().toBuffer();
+};
+
+export const getIcoByGoogle = async (host: string): Promise<Buffer> => {
+  const url = `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+  const data = await fetch(url).then((res) => res.arrayBuffer());
+  return sharp(Buffer.from(data)).png().toBuffer();
 };
 
 export const generateStringIco = (val?: string): Promise<Buffer> => {
@@ -49,11 +57,12 @@ export const generateStringIco = (val?: string): Promise<Buffer> => {
     <text 
       x="32"
       y="44"
+      font-family="Arial"
       font-size="36"
       font-weight="bold"
       fill="#FFFFFF"
       text-anchor="middle"
-    >${val}</text>
+    >${process.env.VERCEL ? "" : val}</text>
   </svg>`;
 
   return sharp(Buffer.from(svg)).png().toBuffer();
