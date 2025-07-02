@@ -1,8 +1,11 @@
 export default defineResponseHandler(async (event) => {
-  const { id } = getQuery(event);
+  const number = getRouterParam(event, "number");
+  const { s, spec } = getQuery(event);
 
   try {
-    const fetchUrl = `https://avatars.githubusercontent.com/u/${id}?size=100`;
+    const fetchUrl = `https://q1.qlogo.cn/g?b=qq&nk=${number}&s=${
+      s || spec || 100
+    }`;
     const response = await fetch(fetchUrl);
 
     if (response.ok) {
@@ -11,7 +14,7 @@ export default defineResponseHandler(async (event) => {
       throw new Error();
     }
   } catch {
-    const fallbackKey = "fallback/github.png";
+    const fallbackKey = "fallback/qq.png";
     return useStorage("assets:server").getItemRaw(fallbackKey);
   }
 });
