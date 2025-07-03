@@ -1,15 +1,21 @@
 import sharp from 'sharp'
 import icoToPng from 'ico-to-png'
+import * as z from 'zod/v4'
+
+const paramSchema = z.object({
+  host: z.union([z.string().regex(z.regexes.domain), z.ipv4(), z.ipv6()]),
+})
 
 export default defineResponseHandler(async (event) => {
-  const host = getRouterParam(event, 'host')
+  const params = await getValidatedRouterParams(event, paramSchema.safeParse)
+  if (!params.success) throw new Error()
 
   try {
-    return await getIcoByLinkTag(host)
+    return await getIcoByLinkTag(params.data.host)
   } catch (error) {}
 
   try {
-    return await getIcoByFavicon(host)
+    return await getIcoByFavicon(params.data.host)
   } catch (error) {}
 
   return useStorage('assets:server').getItemRaw('fallback/favicon.png')

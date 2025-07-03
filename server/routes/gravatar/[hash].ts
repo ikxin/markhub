@@ -38,8 +38,8 @@ const querySchema = z.object({
 export default defineResponseHandler(async (event) => {
   try {
     const query = await getValidatedQuery(event, querySchema.safeParse)
-    const params = await getValidatedRouterParams(event, paramSchema.safeParse)
 
+    const params = await getValidatedRouterParams(event, paramSchema.safeParse)
     if (!params.success) throw new Error()
 
     const queryParams = new URLSearchParams({ ...query.data })
