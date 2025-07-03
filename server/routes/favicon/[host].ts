@@ -15,40 +15,38 @@ export default defineResponseHandler(async (event) => {
   return useStorage('assets:server').getItemRaw('fallback/favicon.png')
 })
 
-const LINK_REGEX =
-  /((<link[^>]+rel=.(icon|shortcut icon|alternate icon|apple-touch-icon)[^>]+>))/i
-
-const HREF_REGEX = /href=["']([^"']+)["']/i
+const defaultSize = { width: 100, height: 100 }
 
 const getIcoByLinkTag = async (host?: string) => {
-  const html = await fetch(`http://${host}`).then((res) => res.text())
+  const source = await fetch(`http://${host}`).then((res) => res.text())
+  const linkMatch = source?.match(
+    /((<link[^>]+rel=.(icon|shortcut icon|alternate icon|apple-touch-icon)[^>]+>))/g,
+  )
+  const hrefMatch = linkMatch?.toString().match(/href=["']([^"']+)["']/i)
 
-  const link = html.match(LINK_REGEX)
-  if (!link) throw new Error()
+  if (!hrefMatch) throw new Error()
 
-  const href = link[1].match(HREF_REGEX)
-  if (!href) throw new Error()
+  const fetchUrl = new URL(hrefMatch[1], `http://${host}`).toString()
+  const response = await fetch(fetchUrl)
 
-  let [_, iconUrl] = href
-  iconUrl = new URL(iconUrl, `http://${host}`).toString()
-
-  const response = await fetch(iconUrl)
-
-  if (!response.ok) throw new Error()
-
-  const buffer = Buffer.from(await response.arrayBuffer())
-
-  if (iconUrl.endsWith('.ico')) {
-    return icoToPng(buffer, 64)
+  if (response.ok) {
+    const buffer = Buffer.from(await response.arrayBuffer())
+    return fetchUrl.endsWith('.ico')
+      ? sharp(await icoToPng(buffer, 64)).resize(defaultSize)
+      : sharp(buffer).resize(defaultSize)
   } else {
-    return sharp(buffer).resize({ width: 64, height: 64 }).toBuffer()
+    throw new Error()
   }
 }
 
 const getIcoByFavicon = async (host?: string) => {
-  const buffer = Buffer.from(
-    await fetch(`http://${host}/favicon.ico`).then((res) => res.arrayBuffer()),
-  )
+  const fetchUrl = new URL('/favicon.ico', `http://${host}`).toString()
+  const response = await fetch(fetchUrl)
 
-  return icoToPng(buffer, 64)
+  if (response.ok) {
+    const buffer = Buffer.from(await response.arrayBuffer())
+    return sharp(await icoToPng(buffer, 64)).resize(defaultSize)
+  } else {
+    throw new Error()
+  }
 }
