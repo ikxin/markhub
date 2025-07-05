@@ -36,12 +36,13 @@ const getIcoByLinkTag = async (host?: string) => {
 
   if (!hrefMatch) throw new Error()
 
-  const fetchUrl = new URL(hrefMatch[1], `http://${host}`).toString()
-  const response = await fetch(fetchUrl)
+  const fetchUrl = new URL(hrefMatch[1], `http://${host}`)
+  fetchUrl.search = ''
+  const response = await fetch(fetchUrl.toString())
 
   if (response.ok) {
     const buffer = Buffer.from(await response.arrayBuffer())
-    return fetchUrl.endsWith('.ico')
+    return fetchUrl.toString().endsWith('.ico')
       ? sharp(await icoToPng(buffer, 64)).resize(defaultSize)
       : sharp(buffer).resize(defaultSize)
   } else {
@@ -50,8 +51,8 @@ const getIcoByLinkTag = async (host?: string) => {
 }
 
 const getIcoByFavicon = async (host?: string) => {
-  const fetchUrl = new URL('/favicon.ico', `http://${host}`).toString()
-  const response = await fetch(fetchUrl)
+  const fetchUrl = new URL('/favicon.ico', `http://${host}`)
+  const response = await fetch(fetchUrl.toString())
 
   if (response.ok) {
     const buffer = Buffer.from(await response.arrayBuffer())
