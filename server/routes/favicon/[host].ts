@@ -3,26 +3,30 @@ import icoToPng from 'ico-to-png'
 import sharp from 'sharp'
 
 const paramSchema = z.object({
-  host: z.union([z.string().regex(z.regexes.domain), z.ipv4(), z.ipv6()]),
+  host: z.union([
+    z.ipv4(),
+    z.ipv6(),
+    z.string().regex(z.regexes.hostname),
+    z.string().regex(z.regexes.domain),
+  ]),
 })
 
 export default defineResponseHandler(async (event) => {
   const params = await getValidatedRouterParams(event, paramSchema.safeParse)
-  if (!params.success) throw new Error()
+  if (!params.success)
+    return useStorage('assets:server').getItemRaw('fallback/favicon.png')
 
   try {
     return await getIcoByLinkTag(params.data.host)
   } catch {
-    /* empty */
+    /* next */
   }
 
   try {
     return await getIcoByFavicon(params.data.host)
   } catch {
-    /* empty */
+    return useStorage('assets:server').getItemRaw('fallback/favicon.png')
   }
-
-  return useStorage('assets:server').getItemRaw('fallback/favicon.png')
 })
 
 const defaultSize = { width: 100, height: 100 }
