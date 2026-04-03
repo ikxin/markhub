@@ -6,6 +6,9 @@
 .cache
 dist
 
+# ico-to-png test output
+packages/ico-to-png/output
+
 # Node dependencies
 node_modules
 

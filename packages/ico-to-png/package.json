@@ -1,0 +1,26 @@
+{
+  "name": "@markhub/ico-to-png",
+  "version": "0.1.0",
+  "description": "Zero-dependency ICO to PNG converter for Node.js, Deno, Bun, and edge runtimes",
+  "type": "module",
+  "exports": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "tsx --test index.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "sharp": "^0.34.5",
+    "tsx": "^4.21.0"
+  },
+  "keywords": [
+    "ico",
+    "png",
+    "favicon",
+    "converter",
+    "sharp"
+  ],
+  "license": "MIT"
+}
