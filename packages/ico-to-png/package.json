@@ -8,12 +8,12 @@
     "src"
   ],
   "scripts": {
-    "test": "tsx --test index.test.ts"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
     "sharp": "^0.34.5",
-    "tsx": "^4.21.0"
+    "vitest": "^3.2.4"
   },
   "keywords": [
     "ico",
