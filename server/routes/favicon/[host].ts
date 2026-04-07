@@ -1,5 +1,5 @@
 import * as z from 'zod/v4'
-import icoToPng from '@markhub/ico-to-png'
+import icoToSharp from '@markhub/ico-to-sharp'
 import sharp from 'sharp'
 
 const paramSchema = z.object({
@@ -47,7 +47,7 @@ const getIcoByLinkTag = async (host?: string) => {
   if (response.ok) {
     const buffer = Buffer.from(await response.arrayBuffer())
     return fetchUrl.toString().endsWith('.ico')
-      ? sharp(icoToPng(buffer, 64)).resize(defaultSize)
+      ? sharp(icoToSharp(buffer)).resize(defaultSize)
       : sharp(buffer).resize(defaultSize)
   } else {
     throw new Error()
@@ -60,7 +60,7 @@ const getIcoByFavicon = async (host?: string) => {
 
   if (response.ok) {
     const buffer = Buffer.from(await response.arrayBuffer())
-    return sharp(icoToPng(buffer, 64)).resize(defaultSize)
+    return sharp(icoToSharp(buffer)).resize(defaultSize)
   } else {
     throw new Error()
   }

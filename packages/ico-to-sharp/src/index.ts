@@ -2,10 +2,38 @@ const PNG_SIG = /* @__PURE__ */ new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ])
 
+const JPEG_SIG = /* @__PURE__ */ new Uint8Array([0xff, 0xd8, 0xff])
+
+const GIF_SIG = /* @__PURE__ */ new Uint8Array([0x47, 0x49, 0x46])
+
+const WEBP_SIG = /* @__PURE__ */ new Uint8Array([0x52, 0x49, 0x46, 0x46])
+
 function isPng(b: Uint8Array): boolean {
   if (b.length < 8) return false
   for (let i = 0; i < 8; i++) if (b[i] !== PNG_SIG[i]) return false
   return true
+}
+
+function isJpeg(b: Uint8Array): boolean {
+  if (b.length < 3) return false
+  for (let i = 0; i < 3; i++) if (b[i] !== JPEG_SIG[i]) return false
+  return true
+}
+
+function isGif(b: Uint8Array): boolean {
+  if (b.length < 3) return false
+  for (let i = 0; i < 3; i++) if (b[i] !== GIF_SIG[i]) return false
+  return true
+}
+
+function isWebp(b: Uint8Array): boolean {
+  if (b.length < 12) return false
+  for (let i = 0; i < 4; i++) if (b[i] !== WEBP_SIG[i]) return false
+  return b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+}
+
+function isSharpSupported(b: Uint8Array): boolean {
+  return isPng(b) || isJpeg(b) || isGif(b) || isWebp(b)
 }
 
 function r16(b: Uint8Array, o: number): number {
@@ -24,23 +52,23 @@ function w32(b: Uint8Array, o: number, v: number): void {
 }
 
 /**
- * Convert ICO image data to PNG format.
+ * Convert image data to sharp-compatible format.
  *
  * Handles standard ICO files with BMP entries (1/4/8/24/32-bit),
- * ICO files with embedded PNG entries, and PNG files with .ico extension.
+ * ICO files with embedded PNG/JPEG entries, and PNG/JPEG/GIF/WebP files.
  *
- * @param input - ICO file content as Uint8Array or ArrayBuffer
- * @param size  - Preferred icon size in pixels (picks the closest match)
- * @returns PNG file content as Uint8Array, compatible with sharp and other image libraries
+ * @param input - Image file content as Uint8Array or ArrayBuffer
+ * @param size  - Preferred icon size in pixels (defaults to largest available)
+ * @returns Image data compatible with sharp
  */
-export default function icoToPng(
+export default function icoToSharp(
   input: Uint8Array | ArrayBuffer,
   size?: number,
 ): Uint8Array {
   const buf = input instanceof Uint8Array ? input : new Uint8Array(input)
 
-  // Some .ico files are actually PNG files
-  if (isPng(buf)) return buf
+  // Pass through sharp-supported formats directly
+  if (isSharpSupported(buf)) return buf
 
   // Validate ICO header: reserved=0, type=1 (icon)
   if (buf.length < 6 || r16(buf, 0) !== 0 || r16(buf, 2) !== 1)
@@ -49,7 +77,7 @@ export default function icoToPng(
   const count = r16(buf, 4)
   if (count === 0) throw new Error('ICO contains no images')
 
-  // Select best matching entry
+  // Select best matching entry (defaults to largest)
   let bestIdx = 0
   let bestScore = -Infinity
   for (let i = 0; i < count; i++) {
@@ -67,8 +95,8 @@ export default function icoToPng(
   const imgSize = r32(buf, e + 8)
   const img = buf.subarray(offset, offset + imgSize)
 
-  // Entry may contain embedded PNG
-  if (isPng(img)) return img
+  // Entry may contain embedded sharp-supported image
+  if (isSharpSupported(img)) return img
 
   // Decode BMP DIB data and encode as PNG
   return dibToPng(img)

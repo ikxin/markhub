@@ -6,8 +6,8 @@
 .cache
 dist
 
-# ico-to-png test output
-packages/ico-to-png/output
+# ico-to-sharp test output
+packages/ico-to-sharp/output
 
 # Node dependencies
 node_modules
