@@ -61,7 +61,7 @@ function w32(b: Uint8Array, o: number, v: number): void {
  * @param size  - Preferred icon size in pixels (defaults to largest available)
  * @returns Image data compatible with sharp
  */
-export default function icoToSharp(
+export function icoToSharp(
   input: Uint8Array | ArrayBuffer,
   size?: number,
 ): Uint8Array {

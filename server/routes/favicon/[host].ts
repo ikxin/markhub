@@ -1,5 +1,4 @@
 import * as z from 'zod/v4'
-import icoToSharp from '@markhub/ico-to-sharp'
 import sharp from 'sharp'
 
 const paramSchema = z.object({

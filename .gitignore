@@ -6,9 +6,6 @@
 .cache
 dist
 
-# ico-to-sharp test output
-packages/ico-to-sharp/output
-
 # Node dependencies
 node_modules
 
