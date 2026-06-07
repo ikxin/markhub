@@ -1,75 +1,65 @@
-# Nuxt Minimal Starter
+# Markhub
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Markhub is a small Gin service that proxies avatar and favicon images. Favicon
+images are normalized with libvips through govips.
 
-## Setup
+## Requirements
 
-Make sure to install dependencies:
+- Go 1.25 or newer
+- libvips and pkg-config
 
-```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+On macOS:
 
 ```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+brew install vips pkg-config
 ```
 
-## Production
-
-Build the application for production:
+On Debian/Ubuntu:
 
 ```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+apt-get update
+apt-get install -y libvips-dev pkg-config
 ```
 
-Locally preview production build:
+## Development
+
+Run the service on `http://localhost:3000`:
 
 ```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
+go run ./cmd/markhub
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Use `HOST` and `PORT` to override the bind address:
+
+```bash
+HOST=127.0.0.1 PORT=8080 go run ./cmd/markhub
+```
+
+Run tests:
+
+```bash
+go test ./...
+```
+
+## Routes
+
+- `GET /github?id=<id>`
+- `GET /github/:user`
+- `GET /gravatar/:hashOrEmail`
+- `GET /qq/:number`
+- `GET /telegram/:user`
+- `GET /opencollective/:user`
+- `GET /favicon/:host`
+
+Responses use `Content-Type: image/png` and
+`Cache-Control: max-age=2592000`. Failed upstream requests return the matching
+fallback PNG.
+
+## Docker
+
+Build and run:
+
+```bash
+docker build -t markhub .
+docker run --rm -p 3000:3000 markhub
+```
