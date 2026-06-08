@@ -237,7 +237,7 @@ func TestFaviconByLinkTag(t *testing.T) {
 }
 
 func TestFaviconResizesICO(t *testing.T) {
-	icon, err := os.ReadFile("../../test/fixtures/ico-to-sharp/github.ico")
+	icon, err := os.ReadFile("../../test/fixtures/favicon/github.ico")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}

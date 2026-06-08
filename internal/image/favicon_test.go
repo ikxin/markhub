@@ -72,7 +72,7 @@ func TestResizeToPNGWithDIBICO(t *testing.T) {
 func readFixture(t *testing.T, name string) []byte {
 	t.Helper()
 
-	path := filepath.Join("..", "..", "test", "fixtures", "ico-to-sharp", name)
+	path := filepath.Join("..", "..", "test", "fixtures", "favicon", name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)
