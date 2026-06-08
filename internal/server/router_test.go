@@ -236,8 +236,8 @@ func TestFaviconByLinkTag(t *testing.T) {
 	}
 }
 
-func TestFaviconFallsBackForUnsupportedICO(t *testing.T) {
-	unsupportedICO, err := os.ReadFile("../../test/fixtures/ico-to-sharp/github.ico")
+func TestFaviconResizesICO(t *testing.T) {
+	icon, err := os.ReadFile("../../test/fixtures/ico-to-sharp/github.ico")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestFaviconFallsBackForUnsupportedICO(t *testing.T) {
 				case "http://example.com/":
 					return response(http.StatusOK, []byte(`<html></html>`)), nil
 				case "http://example.com/favicon.ico":
-					return response(http.StatusOK, unsupportedICO), nil
+					return response(http.StatusOK, icon), nil
 				default:
 					return response(http.StatusNotFound, nil), nil
 				}
@@ -259,9 +259,7 @@ func TestFaviconFallsBackForUnsupportedICO(t *testing.T) {
 
 	recorder := performRequest(router, "/favicon/example.com")
 	assertImageResponse(t, recorder)
-	if !bytes.Equal(recorder.Body.Bytes(), mustFallback(t, "favicon")) {
-		t.Fatal("unsupported ICO did not return favicon fallback")
-	}
+	assertPNGSize(t, recorder.Body.Bytes(), 100, 100)
 }
 
 func response(status int, data []byte) *http.Response {

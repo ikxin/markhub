@@ -2,7 +2,6 @@ package image
 
 import (
 	"bytes"
-	"errors"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -56,26 +55,17 @@ func TestResizeToPNGWithDirectPNG(t *testing.T) {
 func TestResizeToPNGWithDIBICO(t *testing.T) {
 	input := readFixture(t, "github.ico")
 
-	_, err := ResizeToPNG(input, 100, 100)
-	if !errors.Is(err, ErrUnsupportedICO) {
-		t.Fatalf("ResizeToPNG error = %v, want ErrUnsupportedICO", err)
-	}
-}
-
-func TestSelectICOEntryRespectsPreferredSize(t *testing.T) {
-	input := readFixture(t, "github.ico")
-
-	entry16, err := SelectICOEntry(input, 16)
+	output, err := ResizeToPNG(input, 100, 100)
 	if err != nil {
-		t.Fatalf("SelectICOEntry(16) returned error: %v", err)
-	}
-	entry32, err := SelectICOEntry(input, 32)
-	if err != nil {
-		t.Fatalf("SelectICOEntry(32) returned error: %v", err)
+		t.Fatalf("ResizeToPNG returned error: %v", err)
 	}
 
-	if bytes.Equal(entry16, entry32) {
-		t.Fatal("SelectICOEntry returned the same entry for 16px and 32px preferences")
+	config, err := png.DecodeConfig(bytes.NewReader(output))
+	if err != nil {
+		t.Fatalf("output is not a valid PNG: %v", err)
+	}
+	if config.Width != 100 || config.Height != 100 {
+		t.Fatalf("output size = %dx%d, want 100x100", config.Width, config.Height)
 	}
 }
 
