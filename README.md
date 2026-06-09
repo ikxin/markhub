@@ -51,9 +51,11 @@ go test ./...
 - `GET /opencollective/:user`
 - `GET /favicon/:host`
 
-Responses use `Content-Type: image/png` and
-`Cache-Control: max-age=2592000`. Failed upstream requests return the matching
-fallback PNG.
+Responses use `Content-Type: image/webp` and
+`Cache-Control: max-age=2592000`. Images are normalized to 100x100 WebP by
+default. The Gravatar `s` parameter and QQ `s`/`spec` parameters can change the
+output size up to 2048x2048. Failed upstream requests return the matching
+fallback image as WebP.
 
 ## Docker
 

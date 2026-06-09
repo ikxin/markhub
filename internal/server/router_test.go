@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/davidbyttow/govips/v2/vips"
+	"golang.org/x/image/webp"
 
 	"markhub/internal/assets"
 )
@@ -86,11 +86,12 @@ func TestProxyRoutesSuccess(t *testing.T) {
 
 			recorder := performRequest(router, test.path)
 			assertImageResponse(t, recorder)
+			assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
 			if requested != test.expected {
 				t.Fatalf("requested URL = %q, want %q", requested, test.expected)
 			}
-			if !bytes.Equal(recorder.Body.Bytes(), remotePNG) {
-				t.Fatal("response body did not proxy upstream bytes")
+			if bytes.Equal(recorder.Body.Bytes(), remotePNG) {
+				t.Fatal("response body was not converted from upstream PNG")
 			}
 		})
 	}
@@ -122,8 +123,9 @@ func TestProxyRoutesFallback(t *testing.T) {
 
 			recorder := performRequest(router, test.path)
 			assertImageResponse(t, recorder)
-			if !bytes.Equal(recorder.Body.Bytes(), mustFallback(t, test.fallback)) {
-				t.Fatalf("response body is not %s fallback", test.fallback)
+			assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
+			if bytes.Equal(recorder.Body.Bytes(), mustFallback(t, test.fallback)) {
+				t.Fatalf("response body was not converted from %s fallback PNG", test.fallback)
 			}
 		})
 	}
@@ -142,6 +144,7 @@ func TestGravatarEmailAndValidation(t *testing.T) {
 
 	recorder := performRequest(router, "/gravatar/test@example.com?size=80&default=identicon&rating=pg&name=Test")
 	assertImageResponse(t, recorder)
+	assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
 
 	sum := md5.Sum([]byte("test@example.com"))
 	expectedHash := hex.EncodeToString(sum[:])
@@ -168,22 +171,69 @@ func TestGravatarEmailAndValidation(t *testing.T) {
 
 	recorder = performRequest(router, "/gravatar/not-a-valid-hash")
 	assertImageResponse(t, recorder)
+	assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
 	if called {
 		t.Fatal("invalid gravatar parameter should not call upstream")
 	}
-	if !bytes.Equal(recorder.Body.Bytes(), mustFallback(t, "gravatar")) {
-		t.Fatal("invalid gravatar parameter did not return fallback")
+	if bytes.Equal(recorder.Body.Bytes(), mustFallback(t, "gravatar")) {
+		t.Fatal("invalid gravatar parameter returned raw fallback PNG")
+	}
+}
+
+func TestGravatarOutputSize(t *testing.T) {
+	tests := []struct {
+		path         string
+		expectedSize int
+		expectedS    string
+	}{
+		{
+			path:         "/gravatar/0123456789abcdef0123456789abcdef?s=80&size=120",
+			expectedSize: 80,
+			expectedS:    "80",
+		},
+		{
+			path:         "/gravatar/0123456789abcdef0123456789abcdef?s=4096",
+			expectedSize: 2048,
+			expectedS:    "2048",
+		},
+		{
+			path:         "/gravatar/0123456789abcdef0123456789abcdef?s=invalid",
+			expectedSize: 100,
+			expectedS:    "100",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			var requested *url.URL
+			router := NewRouter(Options{
+				Client: &http.Client{
+					Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+						requested = request.URL
+						return response(http.StatusOK, mustFallback(t, "gravatar")), nil
+					}),
+				},
+			})
+
+			recorder := performRequest(router, test.path)
+			assertImageResponse(t, recorder)
+			assertWebPSize(t, recorder.Body.Bytes(), test.expectedSize, test.expectedSize)
+			assertQuery(t, requested.Query(), "s", test.expectedS)
+		})
 	}
 }
 
 func TestQQSizePriority(t *testing.T) {
 	tests := []struct {
-		path     string
-		expected string
+		path         string
+		expected     string
+		expectedSize int
 	}{
-		{path: "/qq/123?s=640&spec=40", expected: "640"},
-		{path: "/qq/123?spec=40", expected: "40"},
-		{path: "/qq/123", expected: "100"},
+		{path: "/qq/123?s=640&spec=40", expected: "640", expectedSize: 640},
+		{path: "/qq/123?spec=40", expected: "40", expectedSize: 40},
+		{path: "/qq/123", expected: "100", expectedSize: 100},
+		{path: "/qq/123?s=4096", expected: "2048", expectedSize: 2048},
+		{path: "/qq/123?spec=invalid", expected: "100", expectedSize: 100},
 	}
 
 	for _, test := range tests {
@@ -200,6 +250,7 @@ func TestQQSizePriority(t *testing.T) {
 
 			recorder := performRequest(router, test.path)
 			assertImageResponse(t, recorder)
+			assertWebPSize(t, recorder.Body.Bytes(), test.expectedSize, test.expectedSize)
 			if requested.Query().Get("s") != test.expected {
 				t.Fatalf("QQ size = %q, want %q", requested.Query().Get("s"), test.expected)
 			}
@@ -228,7 +279,7 @@ func TestFaviconByLinkTag(t *testing.T) {
 
 	recorder := performRequest(router, "/favicon/example.com")
 	assertImageResponse(t, recorder)
-	assertPNGSize(t, recorder.Body.Bytes(), 100, 100)
+	assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
 
 	expected := []string{"http://example.com/", "http://example.com/favicon.ico"}
 	if strings.Join(requested, "\n") != strings.Join(expected, "\n") {
@@ -259,7 +310,7 @@ func TestFaviconResizesICO(t *testing.T) {
 
 	recorder := performRequest(router, "/favicon/example.com")
 	assertImageResponse(t, recorder)
-	assertPNGSize(t, recorder.Body.Bytes(), 100, 100)
+	assertWebPSize(t, recorder.Body.Bytes(), 100, 100)
 }
 
 func response(status int, data []byte) *http.Response {
@@ -286,8 +337,8 @@ func assertImageResponse(t *testing.T, recorder *httptest.ResponseRecorder) {
 	if recorder.Header().Get("Cache-Control") != cacheControl {
 		t.Fatalf("Cache-Control = %q, want %q", recorder.Header().Get("Cache-Control"), cacheControl)
 	}
-	if contentType := recorder.Header().Get("Content-Type"); contentType != "image/png" {
-		t.Fatalf("Content-Type = %q, want image/png", contentType)
+	if contentType := recorder.Header().Get("Content-Type"); contentType != "image/webp" {
+		t.Fatalf("Content-Type = %q, want image/webp", contentType)
 	}
 }
 
@@ -299,15 +350,15 @@ func assertQuery(t *testing.T, values url.Values, key string, expected string) {
 	}
 }
 
-func assertPNGSize(t *testing.T, data []byte, width, height int) {
+func assertWebPSize(t *testing.T, data []byte, width, height int) {
 	t.Helper()
 
-	config, err := png.DecodeConfig(bytes.NewReader(data))
+	config, err := webp.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		t.Fatalf("data is not a valid PNG: %v", err)
+		t.Fatalf("data is not a valid WebP: %v", err)
 	}
 	if config.Width != width || config.Height != height {
-		t.Fatalf("PNG size = %dx%d, want %dx%d", config.Width, config.Height, width, height)
+		t.Fatalf("WebP size = %dx%d, want %dx%d", config.Width, config.Height, width, height)
 	}
 }
 

@@ -2,12 +2,12 @@ package image
 
 import (
 	"bytes"
-	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/davidbyttow/govips/v2/vips"
+	"golang.org/x/image/webp"
 )
 
 func TestMain(m *testing.M) {
@@ -18,54 +18,48 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestResizeToPNGWithEmbeddedPNGICO(t *testing.T) {
+func TestResizeToWebPWithEmbeddedPNGICO(t *testing.T) {
 	input := readFixture(t, "toutiao.ico")
 
-	output, err := ResizeToPNG(input, 100, 100)
+	output, err := ResizeToWebP(input, 100, 100)
 	if err != nil {
-		t.Fatalf("ResizeToPNG returned error: %v", err)
+		t.Fatalf("ResizeToWebP returned error: %v", err)
 	}
 
-	config, err := png.DecodeConfig(bytes.NewReader(output))
-	if err != nil {
-		t.Fatalf("output is not a valid PNG: %v", err)
-	}
-	if config.Width != 100 || config.Height != 100 {
-		t.Fatalf("output size = %dx%d, want 100x100", config.Width, config.Height)
-	}
+	assertWebPSize(t, output, 100, 100)
 }
 
-func TestResizeToPNGWithDirectPNG(t *testing.T) {
+func TestResizeToWebPWithDirectPNG(t *testing.T) {
 	input := readFixture(t, "tiktok.ico")
 
-	output, err := ResizeToPNG(input, 100, 100)
+	output, err := ResizeToWebP(input, 120, 80)
 	if err != nil {
-		t.Fatalf("ResizeToPNG returned error: %v", err)
+		t.Fatalf("ResizeToWebP returned error: %v", err)
 	}
 
-	config, err := png.DecodeConfig(bytes.NewReader(output))
-	if err != nil {
-		t.Fatalf("output is not a valid PNG: %v", err)
-	}
-	if config.Width != 100 || config.Height != 100 {
-		t.Fatalf("output size = %dx%d, want 100x100", config.Width, config.Height)
-	}
+	assertWebPSize(t, output, 120, 80)
 }
 
-func TestResizeToPNGWithDIBICO(t *testing.T) {
+func TestResizeToWebPWithDIBICO(t *testing.T) {
 	input := readFixture(t, "github.ico")
 
-	output, err := ResizeToPNG(input, 100, 100)
+	output, err := ResizeToWebP(input, 100, 100)
 	if err != nil {
-		t.Fatalf("ResizeToPNG returned error: %v", err)
+		t.Fatalf("ResizeToWebP returned error: %v", err)
 	}
 
-	config, err := png.DecodeConfig(bytes.NewReader(output))
+	assertWebPSize(t, output, 100, 100)
+}
+
+func assertWebPSize(t *testing.T, data []byte, width, height int) {
+	t.Helper()
+
+	config, err := webp.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
-		t.Fatalf("output is not a valid PNG: %v", err)
+		t.Fatalf("data is not a valid WebP: %v", err)
 	}
-	if config.Width != 100 || config.Height != 100 {
-		t.Fatalf("output size = %dx%d, want 100x100", config.Width, config.Height)
+	if config.Width != width || config.Height != height {
+		t.Fatalf("WebP size = %dx%d, want %dx%d", config.Width, config.Height, width, height)
 	}
 }
 

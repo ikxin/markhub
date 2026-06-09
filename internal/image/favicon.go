@@ -7,7 +7,7 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
-func ResizeToPNG(input []byte, width, height int) ([]byte, error) {
+func ResizeToWebP(input []byte, width, height int) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid resize dimensions %dx%d", width, height)
 	}
@@ -28,9 +28,10 @@ func ResizeToPNG(input []byte, width, height int) ([]byte, error) {
 		return nil, err
 	}
 
-	params := vips.NewPngExportParams()
+	params := vips.NewWebpExportParams()
 	params.StripMetadata = true
-	out, _, err := ref.ExportPng(params)
+	params.Lossless = true
+	out, _, err := ref.ExportWebp(params)
 	if err != nil {
 		return nil, err
 	}

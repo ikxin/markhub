@@ -12,16 +12,20 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"markhub/internal/assets"
-	faviconimage "markhub/internal/image"
+	imageproc "markhub/internal/image"
 )
 
 const cacheControl = "max-age=2592000"
+const defaultImageSize = 100
+const maxImageSize = 2048
+const imageContentType = "image/webp"
 
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -59,80 +63,77 @@ func NewRouter(options Options) *gin.Engine {
 
 func (s *Server) githubByID(c *gin.Context) {
 	id := c.Query("id")
-	s.proxy(c, fmt.Sprintf("https://avatars.githubusercontent.com/u/%s?size=100", id), "github")
+	s.proxy(c, fmt.Sprintf("https://avatars.githubusercontent.com/u/%s?size=100", id), "github", defaultImageSize)
 }
 
 func (s *Server) githubByUser(c *gin.Context) {
 	user := c.Param("user")
-	s.proxy(c, fmt.Sprintf("https://github.com/%s.png?size=100", user), "github")
+	s.proxy(c, fmt.Sprintf("https://github.com/%s.png?size=100", user), "github", defaultImageSize)
 }
 
 func (s *Server) gravatar(c *gin.Context) {
+	size := gravatarOutputSize(c)
 	hash, ok := gravatarHash(c.Param("hash"))
 	if !ok {
-		writeFallback(c, "gravatar")
+		writeFallback(c, "gravatar", size)
 		return
 	}
 
 	query := gravatarQuery(c)
 	fetchURL := fmt.Sprintf("https://secure.gravatar.com/avatar/%s?%s", hash, query.Encode())
-	s.proxy(c, fetchURL, "gravatar")
+	s.proxy(c, fetchURL, "gravatar", size)
 }
 
 func (s *Server) qq(c *gin.Context) {
-	size, ok := c.GetQuery("s")
-	if !ok {
-		size, ok = c.GetQuery("spec")
-	}
-	if !ok {
-		size = "100"
-	}
-
+	size := qqOutputSize(c)
 	number := c.Param("number")
-	s.proxy(c, fmt.Sprintf("https://q1.qlogo.cn/g?b=qq&nk=%s&s=%s", number, size), "qq")
+	s.proxy(c, fmt.Sprintf("https://q1.qlogo.cn/g?b=qq&nk=%s&s=%d", number, size), "qq", size)
 }
 
 func (s *Server) telegram(c *gin.Context) {
 	user := c.Param("user")
-	s.proxy(c, fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", user), "telegram")
+	s.proxy(c, fmt.Sprintf("https://t.me/i/userpic/320/%s.jpg", user), "telegram", defaultImageSize)
 }
 
 func (s *Server) openCollective(c *gin.Context) {
 	user := c.Param("user")
-	s.proxy(c, fmt.Sprintf("https://images.opencollective.com/%s/avatar.png?width=100&height=100", user), "opencollective")
+	s.proxy(c, fmt.Sprintf("https://images.opencollective.com/%s/avatar.png?width=100&height=100", user), "opencollective", defaultImageSize)
 }
 
 func (s *Server) favicon(c *gin.Context) {
+	size := defaultImageSize
 	host, ok := normalizeHost(c.Param("host"))
 	if !ok {
-		writeFallback(c, "favicon")
+		writeFallback(c, "favicon", size)
 		return
 	}
 
-	if data, err := s.faviconByLinkTag(c.Request.Context(), host); err == nil {
+	if data, err := s.faviconByLinkTag(c.Request.Context(), host, size); err == nil {
 		writeImage(c, data)
 		return
 	}
 
-	if data, err := s.faviconByDefaultPath(c.Request.Context(), host); err == nil {
+	if data, err := s.faviconByDefaultPath(c.Request.Context(), host, size); err == nil {
 		writeImage(c, data)
 		return
 	}
 
-	writeFallback(c, "favicon")
+	writeFallback(c, "favicon", size)
 }
 
-func (s *Server) proxy(c *gin.Context, fetchURL string, fallback string) {
+func (s *Server) proxy(c *gin.Context, fetchURL string, fallback string, size int) {
 	data, err := s.fetch(c.Request.Context(), fetchURL)
 	if err != nil {
-		writeFallback(c, fallback)
+		writeFallback(c, fallback, size)
 		return
 	}
 
-	writeImage(c, data)
+	if err := writeConvertedImage(c, data, size); err != nil {
+		writeFallback(c, fallback, size)
+	}
 }
 
-func (s *Server) faviconByLinkTag(ctx context.Context, host string) ([]byte, error) {
+func (s *Server) faviconByLinkTag(ctx context.Context, host string, size int) ([]byte, error) {
 	pageURL := httpURL(host, "/")
 	page, err := s.fetch(ctx, pageURL)
 	if err != nil {
@@ -159,15 +160,15 @@ func (s *Server) faviconByLinkTag(ctx context.Context, host string) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	return faviconimage.ResizeToPNG(data, 100, 100)
+	return resizeToWebP(data, size)
 }
 
-func (s *Server) faviconByDefaultPath(ctx context.Context, host string) ([]byte, error) {
+func (s *Server) faviconByDefaultPath(ctx context.Context, host string, size int) ([]byte, error) {
 	data, err := s.fetch(ctx, httpURL(host, "/favicon.ico"))
 	if err != nil {
 		return nil, err
 	}
-	return faviconimage.ResizeToPNG(data, 100, 100)
+	return resizeToWebP(data, size)
 }
 
 func (s *Server) fetch(ctx context.Context, fetchURL string) ([]byte, error) {
@@ -192,16 +193,31 @@ func (s *Server) fetch(ctx context.Context, fetchURL string) ([]byte, error) {
 
 func writeImage(c *gin.Context, data []byte) {
 	c.Header("Cache-Control", cacheControl)
-	c.Data(http.StatusOK, "image/png", data)
+	c.Data(http.StatusOK, imageContentType, data)
 }
 
-func writeFallback(c *gin.Context, name string) {
+func writeConvertedImage(c *gin.Context, data []byte, size int) error {
+	converted, err := resizeToWebP(data, size)
+	if err != nil {
+		return err
+	}
+	writeImage(c, converted)
+	return nil
+}
+
+func writeFallback(c *gin.Context, name string, size int) {
 	data, err := assets.Fallback(name)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeImage(c, data)
+	if err := writeConvertedImage(c, data, size); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+	}
+}
+
+func resizeToWebP(data []byte, size int) ([]byte, error) {
+	return imageproc.ResizeToWebP(data, size, size)
 }
 
 var hashPattern = regexp.MustCompile(`(?i)^([a-f0-9]{32}|[a-f0-9]{64})$`)
@@ -222,7 +238,7 @@ func gravatarHash(value string) (string, bool) {
 
 func gravatarQuery(c *gin.Context) url.Values {
 	values := url.Values{}
-	setQueryDefault(c, values, "s", "100")
+	values.Set("s", strconv.Itoa(gravatarOutputSize(c)))
 	setOptionalQuery(c, values, "size")
 	setOptionalQuery(c, values, "default")
 	setOptionalQuery(c, values, "f")
@@ -246,6 +262,34 @@ func setOptionalQuery(c *gin.Context, values url.Values, key string) {
 	if value, ok := c.GetQuery(key); ok {
 		values.Set(key, value)
 	}
+}
+
+func gravatarOutputSize(c *gin.Context) int {
+	if value, ok := c.GetQuery("s"); ok {
+		return normalizeImageSize(value)
+	}
+	return defaultImageSize
+}
+
+func qqOutputSize(c *gin.Context) int {
+	if value, ok := c.GetQuery("s"); ok {
+		return normalizeImageSize(value)
+	}
+	if value, ok := c.GetQuery("spec"); ok {
+		return normalizeImageSize(value)
+	}
+	return defaultImageSize
+}
+
+func normalizeImageSize(value string) int {
+	size, err := strconv.Atoi(value)
+	if err != nil || size <= 0 {
+		return defaultImageSize
+	}
+	if size > maxImageSize {
+		return maxImageSize
+	}
+	return size
 }
 
 var linkTagPattern = regexp.MustCompile(`(?is)<link\b[^>]*\brel\s*=\s*["']?(icon|shortcut icon|alternate icon|apple-touch-icon)["']?[^>]*>`)
