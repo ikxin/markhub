@@ -15,9 +15,11 @@ import (
 	"markhub/internal/image"
 )
 
+const gravatarSourceSize = 640
+
 func Gravatar(client image.HTTPClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		size := gravatarOutputSize(c)
+		size := image.OutputSize(c)
 		hash, ok := gravatarHash(c.Param("hash"))
 		if !ok {
 			image.WriteFallback(c, "gravatar", size)
@@ -48,8 +50,7 @@ func gravatarHash(value string) (string, bool) {
 
 func gravatarQuery(c *gin.Context) url.Values {
 	values := url.Values{}
-	values.Set("s", strconv.Itoa(gravatarOutputSize(c)))
-	setOptionalQuery(c, values, "size")
+	values.Set("s", strconv.Itoa(gravatarSourceSize))
 	setOptionalQuery(c, values, "default")
 	setOptionalQuery(c, values, "f")
 	setOptionalQuery(c, values, "forcedefault")
@@ -72,11 +73,4 @@ func setOptionalQuery(c *gin.Context, values url.Values, key string) {
 	if value, ok := c.GetQuery(key); ok {
 		values.Set(key, value)
 	}
-}
-
-func gravatarOutputSize(c *gin.Context) int {
-	if value, ok := c.GetQuery("s"); ok {
-		return image.NormalizeImageSize(value)
-	}
-	return image.DefaultImageSize
 }

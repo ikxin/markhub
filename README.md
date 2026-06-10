@@ -53,9 +53,9 @@ go test ./...
 
 Responses use `Content-Type: image/webp` and
 `Cache-Control: max-age=2592000`. Images are normalized to 100x100 WebP by
-default. The Gravatar `s` parameter and QQ `s`/`spec` parameters can change the
-output size up to 2048x2048. Failed upstream requests return the matching
-fallback image as WebP.
+default after fetching a high-resolution source image from each provider. Use
+the `size` or `s` query parameter to change the WebP output size up to
+2048x2048. Failed upstream requests return the matching fallback image as WebP.
 
 ## Docker
 

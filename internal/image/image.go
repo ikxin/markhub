@@ -76,6 +76,16 @@ func ResizeToWebP(data []byte, size int) ([]byte, error) {
 	return resizeToWebP(data, size, size)
 }
 
+func OutputSize(c *gin.Context) int {
+	if value, ok := c.GetQuery("size"); ok {
+		return NormalizeImageSize(value)
+	}
+	if value, ok := c.GetQuery("s"); ok {
+		return NormalizeImageSize(value)
+	}
+	return DefaultImageSize
+}
+
 func NormalizeImageSize(value string) int {
 	size, err := strconv.Atoi(value)
 	if err != nil || size <= 0 {

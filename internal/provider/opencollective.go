@@ -8,9 +8,11 @@ import (
 	"markhub/internal/image"
 )
 
+const openCollectiveSourceSize = 512
+
 func OpenCollective(client image.HTTPClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user := c.Param("user")
-		image.ProxyImage(c, client, fmt.Sprintf("https://images.opencollective.com/%s/avatar.png?width=100&height=100", user), "opencollective", image.DefaultImageSize)
+		image.ProxyImage(c, client, fmt.Sprintf("https://images.opencollective.com/%s/avatar.png?width=%d&height=%d", user, openCollectiveSourceSize, openCollectiveSourceSize), "opencollective", image.OutputSize(c))
 	}
 }
