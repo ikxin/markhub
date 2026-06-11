@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"regexp"
@@ -20,27 +19,28 @@ const maxICOPageScan = 256
 func Favicon(client image.HTTPClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		size := image.OutputSize(c)
-		host, ok := normalizeHost(c.Param("host"))
+		host, format := image.ResolveFormat(c, c.Param("host"))
+		host, ok := normalizeHost(host)
 		if !ok {
-			image.WriteFallback(c, "favicon", size)
+			image.WriteFallback(c, "favicon", size, format)
 			return
 		}
 
-		if data, err := faviconByLinkTag(c.Request.Context(), client, host, size); err == nil {
-			image.WriteImage(c, data)
+		if data, err := faviconByLinkTag(c.Request.Context(), client, host, size, format); err == nil {
+			image.WriteImage(c, data, format)
 			return
 		}
 
-		if data, err := faviconByDefaultPath(c.Request.Context(), client, host, size); err == nil {
-			image.WriteImage(c, data)
+		if data, err := faviconByDefaultPath(c.Request.Context(), client, host, size, format); err == nil {
+			image.WriteImage(c, data, format)
 			return
 		}
 
-		image.WriteFallback(c, "favicon", size)
+		image.WriteFallback(c, "favicon", size, format)
 	}
 }
 
-func faviconByLinkTag(ctx context.Context, client image.HTTPClient, host string, size int) ([]byte, error) {
+func faviconByLinkTag(ctx context.Context, client image.HTTPClient, host string, size int, format image.Format) ([]byte, error) {
 	pageURL := httpURL(host, "/")
 	page, err := image.Fetch(ctx, client, pageURL)
 	if err != nil {
@@ -67,15 +67,15 @@ func faviconByLinkTag(ctx context.Context, client image.HTTPClient, host string,
 	if err != nil {
 		return nil, err
 	}
-	return resizeFaviconToWebP(data, size)
+	return resizeFavicon(data, size, format)
 }
 
-func faviconByDefaultPath(ctx context.Context, client image.HTTPClient, host string, size int) ([]byte, error) {
+func faviconByDefaultPath(ctx context.Context, client image.HTTPClient, host string, size int, format image.Format) ([]byte, error) {
 	data, err := image.Fetch(ctx, client, httpURL(host, "/favicon.ico"))
 	if err != nil {
 		return nil, err
 	}
-	return resizeFaviconToWebP(data, size)
+	return resizeFavicon(data, size, format)
 }
 
 var linkTagPattern = regexp.MustCompile(`(?is)<link\b[^>]*\brel\s*=\s*["']?(icon|shortcut icon|alternate icon|apple-touch-icon)["']?[^>]*>`)
@@ -94,9 +94,9 @@ func findIconHref(html string) (string, bool) {
 	return matches[1], true
 }
 
-func resizeFaviconToWebP(input []byte, size int) ([]byte, error) {
+func resizeFavicon(input []byte, size int, format image.Format) ([]byte, error) {
 	if !isICO(input) {
-		return image.ResizeToWebP(input, size)
+		return image.Resize(input, size, format)
 	}
 
 	ref, err := loadLargestICOPage(input)
@@ -105,7 +105,7 @@ func resizeFaviconToWebP(input []byte, size int) ([]byte, error) {
 	}
 	defer ref.Close()
 
-	return resizeImageRefToWebP(ref, size, size)
+	return image.ResizeImageRef(ref, size, size, format)
 }
 
 func loadLargestICOPage(input []byte) (*vips.ImageRef, error) {
@@ -141,27 +141,6 @@ func loadLargestICOPage(input []byte) (*vips.ImageRef, error) {
 		return nil, errors.New("ico has invalid dimensions")
 	}
 	return bestRef, nil
-}
-
-func resizeImageRefToWebP(ref *vips.ImageRef, width, height int) ([]byte, error) {
-	if width <= 0 || height <= 0 {
-		return nil, fmt.Errorf("invalid resize dimensions %dx%d", width, height)
-	}
-	if ref.Width() <= 0 || ref.Height() <= 0 {
-		return nil, errors.New("image has invalid dimensions")
-	}
-
-	hScale := float64(width) / float64(ref.Width())
-	vScale := float64(height) / float64(ref.Height())
-	if err := ref.ResizeWithVScale(hScale, vScale, vips.KernelLanczos3); err != nil {
-		return nil, err
-	}
-
-	params := vips.NewWebpExportParams()
-	params.StripMetadata = true
-	params.Lossless = true
-	out, _, err := ref.ExportWebp(params)
-	return out, err
 }
 
 func isICO(input []byte) bool {

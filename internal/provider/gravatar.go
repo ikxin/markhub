@@ -20,15 +20,16 @@ const gravatarSourceSize = 640
 func Gravatar(client image.HTTPClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		size := image.OutputSize(c)
-		hash, ok := gravatarHash(c.Param("hash"))
+		value, format := image.ResolveFormat(c, c.Param("hash"))
+		hash, ok := gravatarHash(value)
 		if !ok {
-			image.WriteFallback(c, "gravatar", size)
+			image.WriteFallback(c, "gravatar", size, format)
 			return
 		}
 
 		query := gravatarQuery(c)
 		fetchURL := fmt.Sprintf("https://secure.gravatar.com/avatar/%s?%s", hash, query.Encode())
-		image.ProxyImage(c, client, fetchURL, "gravatar", size)
+		image.ProxyImage(c, client, fetchURL, "gravatar", size, format)
 	}
 }
 
