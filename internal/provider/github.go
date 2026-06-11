@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,16 +11,16 @@ import (
 
 const githubSourceSize = 460
 
-func GitHubByID(client image.HTTPClient) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Query("id")
-		image.ProxyImage(c, client, fmt.Sprintf("https://avatars.githubusercontent.com/u/%s?size=%d", id, githubSourceSize), "github", image.OutputSize(c))
-	}
-}
+var githubIDPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
 
-func GitHubByUser(client image.HTTPClient) gin.HandlerFunc {
+func GitHub(client image.HTTPClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user := c.Param("user")
-		image.ProxyImage(c, client, fmt.Sprintf("https://github.com/%s.png?size=%d", user, githubSourceSize), "github", image.OutputSize(c))
+		identifier := c.Param("identifier")
+		if _, ok := c.GetQuery("id"); ok && githubIDPattern.MatchString(identifier) {
+			image.ProxyImage(c, client, fmt.Sprintf("https://avatars.githubusercontent.com/u/%s?size=%d", identifier, githubSourceSize), "github", image.OutputSize(c))
+			return
+		}
+
+		image.ProxyImage(c, client, fmt.Sprintf("https://github.com/%s.png?size=%d", identifier, githubSourceSize), "github", image.OutputSize(c))
 	}
 }

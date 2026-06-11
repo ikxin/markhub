@@ -26,8 +26,7 @@ func NewRouter(options Options) *gin.Engine {
 	_ = router.SetTrustedProxies(nil)
 	router.Use(gin.Recovery())
 
-	router.GET("/github", provider.GitHubByID(client))
-	router.GET("/github/:user", provider.GitHubByUser(client))
+	router.GET("/github/:identifier", provider.GitHub(client))
 	router.GET("/gravatar/:hash", provider.Gravatar(client))
 	router.GET("/qq/:number", provider.QQ(client))
 	router.GET("/telegram/:user", provider.Telegram(client))

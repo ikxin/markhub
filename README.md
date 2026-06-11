@@ -43,8 +43,8 @@ go test ./...
 
 ## Routes
 
-- `GET /github?id=<id>`
-- `GET /github/:user`
+- `GET /github/:id?id`
+- `GET /github/:username`
 - `GET /gravatar/:hashOrEmail`
 - `GET /qq/:number`
 - `GET /telegram/:user`
